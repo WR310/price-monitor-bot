@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+prices.json
+prices.xlsx
+*.png
+.env
