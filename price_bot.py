@@ -10,13 +10,13 @@ from openpyxl import Workbook, load_workbook
 from telegram import Update
 from telegram.ext import Updater, CommandHandler, CallbackContext
 
-#ЗАГРУЗКА .env
+# ЗАГРУЗКА .env
 load_dotenv()
 
 TOKEN = os.getenv("TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
-#НАСТРОЙКИ
+# НАСТРОЙКИ
 CHECK_INTERVAL = 3600
 DATA_FILE = "prices.json"
 EXCEL_FILE = "prices.xlsx"
@@ -31,7 +31,7 @@ PRODUCTS = {
 
 logging.basicConfig(level=logging.INFO)
 
-#Работа с JSON
+# Работа с JSON
 def load_data():
     if os.path.exists(DATA_FILE):
         with open(DATA_FILE, "r") as f:
@@ -42,7 +42,7 @@ def save_data(data):
     with open(DATA_FILE, "w") as f:
         json.dump(data, f, indent=4)
 
-#Excel
+# Excel
 def save_to_excel(name, price):
     if not os.path.exists(EXCEL_FILE):
         wb = Workbook()
@@ -55,7 +55,7 @@ def save_to_excel(name, price):
     ws.append([name, price, datetime.now().strftime("%d-%m-%Y %H:%M")])
     wb.save(EXCEL_FILE)
 
-#График
+# График
 def generate_chart(name):
     data = load_data()
     prices = data.get(name, {}).get("history", [])
@@ -77,23 +77,32 @@ def generate_chart(name):
     plt.close()
     return filename
 
-#Парсинг
+# Парсинг
 def parse_price(url):
-    headers = {"User-Agent": "Mozilla/5.0"}
-    response = requests.get(url, headers=headers, timeout=10)
-
-    soup = BeautifulSoup(response.content, "html.parser")
-
-    # ⚠ ОБЯЗАТЕЛЬНО изменить под сайт
-    price_element = soup.find("span", class_="current-price")
-
-    if not price_element:
+    try:
+        # Извлекаем артикул из ссылки (цифры в середине)
+        # Пример: https://www.wildberries.ru/catalog/12345678/detail.aspx
+        item_id = ''.join(filter(str.isdigit, url.split('/')[-2]))
+        
+        # Обращаемся к официальному API Wildberries для карточек товара
+        api_url = f"https://card.wb.ru/cards/v1/detail?appType=1&curr=rub&dest=-1257786&nm={item_id}"
+        
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
+        }
+        
+        response = requests.get(api_url, headers=headers, timeout=10)
+        data = response.json()
+        
+        # Получаем цену (она приходит в копейках, поэтому делим на 100)
+        price = data['data']['products'][0]['salePriceU'] / 100
+        return int(price)
+        
+    except Exception as e:
+        logging.error(f"Ошибка парсинга Wildberries: {e}")
         return None
-
-    price_text = price_element.get_text()
-    return int(''.join(filter(str.isdigit, price_text)))
-
-#Мониторинг
+    
+# Мониторинг
 def check_prices(context: CallbackContext):
     data = load_data()
 
@@ -125,7 +134,7 @@ def check_prices(context: CallbackContext):
 
     save_data(data)
 
-#Команды бота
+# Команды бота
 def start(update: Update, context: CallbackContext):
     update.message.reply_text(
         "🤖 Бот мониторинга цен\n"
@@ -153,7 +162,7 @@ def excel(update: Update, context: CallbackContext):
     if os.path.exists(EXCEL_FILE):
         update.message.reply_document(document=open(EXCEL_FILE, "rb"))
 
-#Запуск
+# Запуск
 def main():
     updater = Updater(TOKEN, use_context=True)
     dp = updater.dispatcher
