@@ -23,7 +23,7 @@ EXCEL_FILE = "prices.xlsx"
 
 PRODUCTS = {
     "iphone": {
-        "url": "ССЫЛКА_НА_ТОВАР",
+        "url": "https://www.wildberries.ru/catalog/574048913/detail.aspx?size=785912405",
         "target_price": 50000
     },
 }
@@ -187,3 +187,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
